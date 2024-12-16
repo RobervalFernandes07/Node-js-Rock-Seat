@@ -1,16 +1,21 @@
 import http from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { json } from './middlewares/json.js';
+import { DataBase } from './database.js';
 
-
-const users = [];
+const database = new DataBase();
 
 const server = http.createServer(async (req, res) => {
   const { method, url } = req;
 
-  await json(req,res)
+  // Processa o JSON da requisição
+  await json(req, res);
+
+  // Acessa o corpo da requisição
+  const body = req.body;
 
   if (method === 'GET' && url === '/users') {
-    // Early return
+    const users = database.select('users');
     return res
       .setHeader('Content-Type', 'application/json')
       .end(JSON.stringify(users));
@@ -19,17 +24,21 @@ const server = http.createServer(async (req, res) => {
   if (method === 'POST' && url === '/users') {
     if (!body || !body.name || !body.email) {
       // Retorna erro se o corpo for inválido
-      return res.writeHead(400, { 'Content-Type': 'application/json' })
+      return res
+        .writeHead(400, { 'Content-Type': 'application/json' })
         .end(JSON.stringify({ error: 'Invalid body format' }));
     }
 
     const { name, email } = body;
 
-    users.push({
-      id: users.length + 1, // Incrementa o ID automaticamente
+    const users = database.select('users') || []; // Obtém os usuários existentes
+    const user = {
+      id: randomUUID(),
       name,
       email,
-    });
+    };
+
+    database.insert('users', user);
 
     return res.writeHead(201).end(); // Retorna código 201 Created
   }
@@ -38,7 +47,7 @@ const server = http.createServer(async (req, res) => {
   return res.writeHead(404).end();
 });
 
-const port = 3333; // ou 8080
+const port = 3333;
 server.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);
 });
